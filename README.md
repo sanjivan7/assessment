@@ -1,6 +1,3 @@
-# assessment
-Sanjivan's KNB Take-Home Assessment
-
 # Assessment
 
 **Built for:** KNB Take-Home Assessment
