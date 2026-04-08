@@ -1,0 +1,30 @@
+# Environment variables - never commit this
+.env
+
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ChromaDB local database
+backend/data/chroma_db/
+
+# Extracted data cache
+backend/data/extracted/
+
+# Raw PDFs (large files)
+docs/
+
+# Pickle files
+*.pkl
+
+# VS Code settings
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
