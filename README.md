@@ -66,6 +66,8 @@ PDF (23 slides)
     Streamlit Frontend
  Chat UI + Data Viewer + About
 
+```
+
 **In plain English:** 
 The document is broken into 23 pieces (one per slide).
 Each piece is converted into a mathematical fingerprint (embedding) that captures
