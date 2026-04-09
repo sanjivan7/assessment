@@ -30,43 +30,44 @@ guessing — this is by design.
 
 ## Architecture Overview
 
-PDF (23 slides)
-│
-├── Pass 1: PyMuPDF ──────────► Native text extraction
-│                                (titles, bullet points, captions)
-│
-└── Pass 2: GPT-4o-mini Vision ► Image-based extraction
-(charts, tables, infographics)
-│
-▼
-Combined chunk per slide
-(text + vision data merged)
-│
-▼
-OpenAI text-embedding-3-small
-(converts each slide to a vector)
-│
-▼
-ChromaDB (local vector store)
-23 chunks stored with metadata
-│
-┌───────────┴───────────┐
-│                       │
-User query               Full context
-→ embed query            → all 23 slides
-→ find similar slides      sent directly
-→ GPT-4o-mini answers      to GPT-4o-mini
-→ return + cite slides
-│
-▼
-FastAPI Backend
-/health  /query  /extract
-│
-▼
-Streamlit Frontend
-Chat UI + Data Viewer + About
+```
 
-**In plain English:** The document is broken into 23 pieces (one per slide).
+PDF (23 slides)
+      │
+      ├── Pass 1: PyMuPDF ──────────► Native text extraction (titles, bullet points, captions)
+      └── Pass 2: GPT-4o-mini Vision (Image-based extraction) ► (Charts, tables, infographics)
+                        │
+                        ▼
+              Combined chunk per slide
+              (text + vision data merged)
+                        │
+                        ▼
+            OpenAI text-embedding-3-small
+          (converts each slide to a vector)
+                        │
+                        ▼
+               ChromaDB — local vector store
+              23 chunks stored with metadata
+                        │
+            ┌───────────┴────────────┐
+            │                        │
+         RAG mode                Full context mode
+      → embed query            all 23 slides which is sent
+     → top-k retrieval          directly to GPT-4o-mini (LLM)
+     → find similar slides      
+     → GPT-4o-mini answers      
+     → return + cite slides     
+            │                      
+            ▼
+      FastAPI Backend
+  /health  /query  /extract
+            │                      
+            ▼
+    Streamlit Frontend
+ Chat UI + Data Viewer + About
+
+**In plain English:** 
+The document is broken into 23 pieces (one per slide).
 Each piece is converted into a mathematical fingerprint (embedding) that captures
 its meaning. When you ask a question, your question gets the same treatment, and
 the system finds the slides whose fingerprints most closely match yours. Those
