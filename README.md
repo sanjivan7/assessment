@@ -1,17 +1,26 @@
-# Assessment
+# Khazanah Annual Review 2026 — RAG Query System
+
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.36-red)
+![GPT-4o-mini](https://img.shields.io/badge/LLM-GPT--4o--mini-orange)
+
+An AI-powered query system that lets economists and analysts ask questions about
+Khazanah Nasional Berhad's Annual Review 2026 and get accurate, sourced answers instantly.
 
 **Built for:** KNB Take-Home Assessment
-**Author:** Sanjivan Balajawahar
-**Submission date:** 10-Apr-2026
+**Developer:** Sanjivan Balajawahar
+**Role:** AI Engineer
+**Date:** 10-Apr-2026
 
 ---
 
 ## What This Tool Does
 
-This tool lets you ask plain English questions about Khazanah Nasional Berhad's
-Annual Review 2026 and get accurate, sourced answers in seconds.
+This tool lets you to ask queestions regarding Khazanah Nasional Berhad's Annual
+Review 2026 and get accurate, sourced answers from the presentation deck in seconds. 
 
-Instead of manually searching through a 23-slide presentation to find a specific
+Instead of having to manually searching through a 23-slide presentation to find a specific
 financial figure or investment detail, you type your question and the system finds
 the most relevant slides, reads them, and writes a direct answer — telling you
 exactly which slides it used.
@@ -68,11 +77,11 @@ PDF (23 slides)
 
 ```
 
-**In plain English:** 
+**Design Explanation:** 
 The document is broken into 23 pieces (one per slide).
-Each piece is converted into a mathematical fingerprint (embedding) that captures
+Each piece is converted into a mathematical fingerprint which is an embedding that captures
 its meaning. When you ask a question, your question gets the same treatment, and
-the system finds the slides whose fingerprints most closely match yours. Those
+the system finds the slides whereby those embeddings match most closely with yours. Those
 slides are handed to GPT-4o-mini, which reads them and writes your answer.
 
 ---
@@ -86,6 +95,11 @@ charts, and tables that standard text extraction cannot read. GPT-4o-mini's
 vision capability reads each slide as an image and extracts structured data.
 Total cost for 23 slides: approximately $0.03.
 
+**Why two-pass PDF parsing?**
+The Annual Review is a slide deck, not a text document. PyMuPDF recovers ~40% of content
+(titles, bullets, captions). GPT-4o-mini Vision recovers the rest — chart values, visual
+tables, infographic data. Both passes are merged per slide before embedding.
+
 **Trade-off:** Vision models achieve roughly 35–50% accuracy on chart value
 extraction. Numbers extracted from bar charts should be treated as approximate.
 Text-based tables and explicit numerical callouts are much more reliable (~90%+).
@@ -95,8 +109,7 @@ The leading free local model (all-MiniLM-L6-v2) has a hard 256-token limit.
 For a slide with a detailed chart description, this silently truncates the most
 important financial figures from the embedding — causing retrieval failures with
 no error message. text-embedding-3-small supports 8,191 tokens and scores
-~20% better on retrieval benchmarks. Total cost for this corpus: $0.0003
-(three hundredths of a cent).
+~20% better on retrieval benchmarks. Total cost for this corpus: $0.0003.
 
 ### Why ChromaDB over a simpler numpy approach?
 At 23 chunks, ChromaDB performs brute-force cosine similarity — mathematically
@@ -104,12 +117,15 @@ identical to numpy. ChromaDB was chosen because it stores documents, embeddings,
 and metadata together in a clean API, and persists to disk so the ingestion step
 only needs to run once. The abstraction cost is justified by the cleaner code.
 
-### Why Streamlit over Next.js?
-The assessment allows either. For a 48-hour solo sprint, Streamlit's native
-`st.chat_message` and `st.chat_input` components produce a working chat interface
-in ~30 lines versus 6–8 hours for an equivalent Next.js implementation. The
-FastAPI backend is fully decoupled — swapping Streamlit for Next.js requires
+### Why Streamlit?
+Easier and more direct which can still produce a working MVP solution. 
+The FastAPI backend is fully decoupled — while swapping Streamlit for Next.js requires
 only a new frontend, no backend changes.
+
+**Why slide-level chunking?**
+Each slide is a self-contained argument. Sub-chunking 23 slides would produce fragments
+too small to carry context. Semantic chunking adds value at scale (1000s of docs) — not
+at 23 slides.
 
 ### Why RAG + full-context mode?
 The entire corpus is ~6,000 tokens — less than 5% of GPT-4o-mini's 128K context
@@ -168,8 +184,6 @@ metadata tagging — a straightforward extension but not implemented here.
 - **Hybrid retrieval:** Add BM25 keyword search alongside vector similarity.
   For precise entity queries ("MAHB partners"), keyword matching outperforms
   pure semantic search
-- **Multi-year comparison:** Ingest 2024 and 2023 Annual Reviews with year
-  metadata, enabling questions like "How did NAV change from 2023 to 2025?"
 - **Next.js frontend:** Replace Streamlit with a proper Next.js interface using
   the Vercel AI SDK for streaming responses and a more polished analyst UX
 - **Caching:** Redis cache for repeated queries — the same financial figure
@@ -180,17 +194,29 @@ metadata tagging — a straightforward extension but not implemented here.
 
 ---
 
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | System status, chunk count, ingestion state |
+| `POST` | `/query` | RAG or full-context query with source citations |
+| `GET` | `/extract` | Pre-extracted structured data (metrics + companies) |
+
+---
+
 ## Setup Instructions
 
 ### Prerequisites
 - Python 3.11
 - Git
 - An OpenAI API key (free tier is sufficient — total cost ~$0.15)
+- 
 
 ### Step 1 — Clone and set up environment
 ```bash
-git clone <your-repo-url>
-cd Sanjivan_Khazanah
+git clone <https://github.com/sanjivan7/assessment.git>
+cd assessment
 py -3.11 -m venv venv
 venv\Scripts\activate        # Windows
 pip install -r requirements.txt
@@ -198,8 +224,10 @@ pip install -r requirements.txt
 
 ### Step 2 — Add API keys
 Create a `.env` file in the project root:
+```bash
 OPENAI_API_KEY=sk-your-key-here
 GEMINI_API_KEY=your-gemini-key-here
+```
 
 ### Step 3 — Add the PDF
 Download Khazanah's Annual Review 2026 from:
