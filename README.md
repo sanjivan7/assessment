@@ -123,9 +123,8 @@ only needs to run once. The abstraction cost is justified by the cleaner code.
 
 ### Why Streamlit?
 
-For a 48-hour solo sprint, Streamlit's native `st.chat_message` and `st.chat_input`
-components produce a working chat interface in ~30 lines versus 6–8 hours for an
-equivalent Next.js implementation. The FastAPI backend is fully decoupled — swapping
+Streamlit is simpler and easier to be completed for a MVP. If I had more time, 
+I would develop it in Next.js next time. The FastAPI backend is fully decoupled — swapping
 Streamlit for Next.js requires only a new frontend, no backend changes.
 
 ### Why slide-level chunking?
@@ -191,12 +190,8 @@ extension but not implemented here.
   and measure faithfulness, answer relevance, and context precision systematically
 - **Hybrid retrieval:** Add BM25 keyword search alongside vector similarity. For
   precise entity queries ("MAHB partners"), keyword matching outperforms pure semantic search
-- **Next.js frontend:** Replace Streamlit with a proper Next.js interface using the
-  Vercel AI SDK for streaming responses and a more polished analyst UX
 - **Caching:** Redis cache for repeated queries — the same financial figure question
   asked twice should not trigger two LLM calls
-- **Re-ingestion endpoint:** A `/ingest` API endpoint (currently script-only) with
-  proper job queuing so non-technical users can trigger pipeline updates
 
 ---
 
@@ -266,7 +261,7 @@ Open `http://localhost:8501` in your browser.
 ### Q1: If this tool were deployed internally at Khazanah for daily analyst use, what would you change?
 
 **Authentication and access control first.** The current API has no auth layer —
-anyone on the network can query it. Production deployment needs SSO integration
+anyone on the network can query it. Production deployment would need SSO integration
 (Azure AD or Okta), role-based access, and audit logging of every query and
 answer for compliance.
 
@@ -274,23 +269,16 @@ answer for compliance.
 - Replace ChromaDB local with Qdrant Cloud or Weaviate for concurrent access.
   ChromaDB's local persistent client is single-process — multiple analysts hitting
   it simultaneously will cause locking errors
-- Move ingestion to a scheduled pipeline (Airflow or cron) that re-processes the
+- Move ingestion to a scheduled pipeline (e.g. Airflow) that re-processes the
   Annual Review when a new version is published
 - Add Redis caching for repeated queries — analysts often ask the same financial
   figure questions; these should be served from cache, not LLM calls
-- Replace Streamlit with a Next.js frontend with proper session management and
-  conversation history per user
 
 **Observability:**
 - Structured logging of every query, retrieved chunks, confidence score, and answer —
   essential for identifying systematic retrieval failures
-- Latency tracking with p95 response time monitoring
+- Latency tracking with response time monitoring
 - A "thumbs down" feedback button that logs negative responses for manual review
-
-**Model tier:**
-- Upgrade from GPT-4o-mini to GPT-4o for production answer quality. The cost
-  difference at internal volumes (~500 queries/day) is approximately $15/month —
-  negligible for an institution of Khazanah's scale
 
 ---
 
