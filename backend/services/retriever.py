@@ -1,6 +1,8 @@
 """
-Retrieval service — queries ChromaDB and returns ranked chunks.
-Also supports full-context mode where all slides are loaded directly.
+PURPOSE:
+Retrieval service responsible for interacting with ChromaDB and the file system.
+It converts natural language queries into embeddings, performs similarity searches,
+and handles full-document context loading for the Khazanah Annual Review 2026.
 """
 
 import json
@@ -13,13 +15,20 @@ from backend.models.schemas import SourceChunk, ConfidenceLevel
 
 
 def get_chroma_collection() -> chromadb.Collection:
-    """Return the persistent ChromaDB collection."""
+    """
+    Initializes a persistent ChromaDB client and retrieves the specific 
+    collection defined in the system settings.
+    """
     client = chromadb.PersistentClient(path=str(settings.chroma_dir))
     return client.get_collection(settings.collection_name)
 
 
 def embed_query(query: str, client: OpenAI) -> list[float]:
-    """Embed a user query using the same model used during ingestion."""
+    """
+    Converts a plain text user query into a high-dimensional vector using 
+    OpenAI's embedding model. This vector is used for mathematical 
+    similarity comparison.
+    """
     response = client.embeddings.create(
         model=settings.embedding_model,
         input=[query]
@@ -33,19 +42,24 @@ def retrieve_chunks(
     top_k: int = 5
 ) -> tuple[list[SourceChunk], list[float], ConfidenceLevel]:
     """
-    Retrieve top-k most relevant chunks for a query.
+    The core RAG retrieval logic:
+    1. Embeds the user query.
+    2. Searches ChromaDB for the most relevant text segments.
+    3. Converts distance metrics into similarity scores.
+    4. Evaluates system confidence based on retrieval quality.
 
     Returns:
-        sources: list of SourceChunk with metadata
-        scores: list of relevance scores
-        confidence: HIGH / MEDIUM / LOW / NO_CONTEXT
+        sources: list of SourceChunk objects containing text and metadata.
+        scores: list of raw similarity scores (0.0 to 1.0).
+        confidence: An Enum indicating the reliability of the retrieved context.
     """
     collection = get_chroma_collection()
 
-    # Embed the query
+    # Step 1: Generate the embedding for the incoming query
     query_embedding = embed_query(query, client)
 
-    # Query ChromaDB
+    # Step 2: Query the vector database
+    # include=["documents", "metadatas", "distances"] ensures we get all needed info
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=min(top_k, collection.count()),
@@ -54,12 +68,14 @@ def retrieve_chunks(
 
     documents = results["documents"][0]
     metadatas = results["metadatas"][0]
-    # ChromaDB returns distances (lower = more similar for cosine)
-    # Convert to similarity scores (higher = more similar)
+    
+    # Step 3: Math Conversion
+    # ChromaDB returns distances (where lower is better).
+    # We convert to similarity scores (where 1.0 is a perfect match) for better readability.
     distances = results["distances"][0]
     scores = [round(1 - d, 4) for d in distances]
 
-    # Build SourceChunk objects
+    # Step 4: Map raw results to the SourceChunk Pydantic model
     sources = []
     for i, (doc, meta, score) in enumerate(zip(documents, metadatas, scores)):
         sources.append(SourceChunk(
@@ -72,7 +88,8 @@ def retrieve_chunks(
             text_preview=doc[:200] + "..." if len(doc) > 200 else doc
         ))
 
-    # Determine confidence from top score
+    # Step 5: Confidence Scoring Logic
+    # We use the highest similarity score to determine how 'sure' we are.
     top_score = scores[0] if scores else 0.0
     if top_score >= 0.70:
         confidence = ConfidenceLevel.HIGH
@@ -87,7 +104,11 @@ def retrieve_chunks(
 
 
 def load_full_context() -> str:
-    """Load the full document context for full-context mode."""
+    """
+    Reads the entire pre-processed document text from disk.
+    Used for 'Full Context Mode' when the LLM needs to analyze the 
+    whole report instead of specific chunks.
+    """
     full_context_path = settings.extracted_dir / "full_context.txt"
     if not full_context_path.exists():
         raise FileNotFoundError(
@@ -97,7 +118,10 @@ def load_full_context() -> str:
 
 
 def load_extracted_data() -> dict:
-    """Load the structured extracted data for the /extract endpoint."""
+    """
+    Loads the structured JSON data (financial metrics, portfolio tables) 
+    that was extracted during the ingestion phase.
+    """
     extracted_path = settings.extracted_dir / "structured_data.json"
     if not extracted_path.exists():
         raise FileNotFoundError(
